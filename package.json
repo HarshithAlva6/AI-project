@@ -1,0 +1,23 @@
+{
+  "name": "ai-project",
+  "version": "1.0.0",
+  "description": "Starting a project of this scope involves careful planning, setting up your development environment, and breaking down the project into manageable phases. Here’s a detailed guide on how to start working on your food identification app using the updated stack of React, Node.js, PostgreSQL, GraphQL, Apache Kafka (or RabbitMQ), Jest, and deployment on Azure with Kubernetes:",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "graphql": "^16.8.2",
+    "graphql-http": "^1.22.1",
+    "pg": "^8.12.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.3"
+  }
+}
