@@ -1,0 +1,11 @@
+import os
+
+class Config:
+    # General Config
+    SECRET_KEY = os.getenv('SECRET_KEY', 'you-will-never-guess')
+    FLASK_ENV = os.getenv('FLASK_ENV', 'development')
+    DEBUG = os.getenv('DEBUG', True)
+
+    # Database Config
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///app.db')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
