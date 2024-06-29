@@ -42,3 +42,7 @@ Opt -
     }
   }
 }
+
+
+FRONTEND -
+npx create-react-app frontend

@@ -1,12 +1,14 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_graphql import GraphQLView
 from .schemas.schema import schema
 from .config import Config
 from .db import db, migrate
+from flask_cors import CORS
 
 
 def create_app():
     app = Flask(__name__)
+    CORS(app)
     app.config.from_object(Config)
 
     db.init_app(app)
@@ -21,6 +23,14 @@ def create_app():
     def hello_world():
         return 'Hello, World!'
 
+    @app.route('/api/data')
+    def get_data():
+        data = {
+            'message': 'Hello from Flask!',
+            'items': ['Item 1', 'Item 2', 'Item 3']
+        }
+        return jsonify(data)
+        
     app.add_url_rule(
         '/graphql',
         view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=True)
