@@ -6,7 +6,7 @@ export const uploadImage = async (file) => {
       method: 'POST',
       body: formData,
     });
-  
+    console.log(response);
     if (!response.ok) {
       throw new Error('Failed to upload image');
     }

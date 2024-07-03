@@ -46,3 +46,4 @@ Opt -
 
 FRONTEND -
 npx create-react-app frontend
+pip install flask-cors
