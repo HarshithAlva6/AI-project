@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Airflow
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  # Initialize Airflow Database
+  airflow-init:
+    image: apache/airflow:2.7.1-python3.10
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    user: "root"
+    volumes:
+      - .:/opt/airflow/dags
+      - ./requirements.txt:/requirements.txt
+      - airflow-storage:/opt/airflow/storage
+    command: >
+      bash -c "chown -R 50000:50000 /opt/airflow/dags &&
+               chown -R 50000:50000 /opt/airflow/storage &&
+               su airflow -c 'pip install --no-cache-dir -r /requirements.txt &&
+               airflow db upgrade &&
+               airflow connections create-default-connections'"
+
+  # Airflow Webserver
+  airflow-webserver:
+    image: apache/airflow:2.7.1-python3.10
+    user: "50000"  # Run as airflow user
+    depends_on:
+      - airflow-init
+    volumes:
+      - .:/opt/airflow/dags
+      - ./requirements.txt:/requirements.txt
+      - airflow-storage:/opt/airflow/storage
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    ports:
+      - "8081:8080"
+    command: >
+      bash -c "pip install --no-cache-dir -r /requirements.txt &&
+               airflow webserver"
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    image: apache/airflow:2.7.1-python3.10
+    user: "50000"  # Run as airflow user
+    depends_on:
+      - airflow-init
+    volumes:
+      - .:/opt/airflow/dags
+      - ./requirements.txt:/requirements.txt
+      - airflow-storage:/opt/airflow/storage
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    command: >
+      bash -c "pip install --no-cache-dir -r /requirements.txt &&
+               airflow scheduler"
+
+volumes:
+  postgres-data:
+  airflow-storage:

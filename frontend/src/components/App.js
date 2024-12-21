@@ -7,9 +7,7 @@ function App() {
   return (
     <div className="App">
       <Navbar />
-      <h1>React and Flask Integration</h1>
       <UploadForm />
-      <DataFetcher />
     </div>
   );
 }

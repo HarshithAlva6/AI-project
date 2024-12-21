@@ -7,7 +7,7 @@ python -m venv envname
 source envname/Scripts/activate
 rm -rf envname
 
-pip install Flask SQLAlchemy graphene graphene-sqlalchemy psycopg2 flask-graphql
+pip install Flask SQLAlchemy graphene graphene-sqlalchemy psycopg2 //flask-graphql
 
 python.exe -m pip install --upgrade pip
 
@@ -47,3 +47,24 @@ Opt -
 FRONTEND -
 npx create-react-app frontend
 pip install flask-cors
+
+
+Step-by-step Approach -
+1. Extract raw data(Indian food Dataset) from Kaggle
+2. pip install kaggle (using Kaggle CLI)
+3. kaggle datasets download -d iamsouravbanerjee/indian-food-images-dataset
+4. unzip indian-food-images-dataset.zip -d frontend
+5. Do ETL on the images, where image folder and metadata(.txt) are under the unzipped folder.
+ - pip install pillow, pip install pandas
+6. TRANSFORM - Resize the image and bring it down to [0,1] by dividing np.array(img) / 255
+7. In another file, do the prediction model using EfficientNet-Lite
+ - pip install tensorflow tensorflow-hub scikit-learn
+8. Once .h5 file is retrieved(Prediction model), we can run the test against the model in the API (__init__)
+9. pip freeze > requirements.txt and pip install -r requirements.txt
+10. pip install apache-airflow
+11. docker ps
+    docker exec -it docker-name bash
+    docker exec -it docker-name-postgreSQL psql -U sql-name
+
+
+For etl.py, had to send data in chunks, and store it in uint8 under array to ensure minimal space taken in Airflow container.

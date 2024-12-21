@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^16.4.7",
     "express": "^4.19.2",
     "graphql": "^16.8.2",
     "graphql-http": "^1.22.1",
