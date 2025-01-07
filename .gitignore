@@ -1,2 +1,6 @@
 node_modules
 __pycache__
+# Ignore large files
+backend/airflow/efficientnet.h5
+envname/Lib/site-packages/clang/native/libclang.dll
+envname/Lib/site-packages/tensorflow/python/_pywrap_tensorflow_internal.pyd
