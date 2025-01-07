@@ -3,15 +3,17 @@ from PIL import Image
 import numpy as np
 import h5py
 
-def run_etl(output_file="/opt/airflow/storage/fin_data.h5", chunk_size=500):
+def run_etl(output_file="/opt/airflow/storage/fin_data.h5", chunk_size=50, image_size=(224, 224)):
     dataset_path = "/opt/airflow/dags/dag/Indian Food Images/Indian Food Images"
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(f"Dataset path '{dataset_path}' does not exist.")
+
     total_images = 0
     skipped_images = 0
 
     with h5py.File(output_file, "w") as h5f:
-        # Use uint8 for images and int32 for labels, with gzip compression
         images_dataset = h5f.create_dataset(
-            "images", shape=(0, 224, 224, 3), maxshape=(None, 224, 224, 3),
+            "images", shape=(0, *image_size, 3), maxshape=(None, *image_size, 3),
             dtype=np.uint8, compression="gzip", compression_opts=9
         )
         labels_dataset = h5f.create_dataset(
@@ -20,17 +22,16 @@ def run_etl(output_file="/opt/airflow/storage/fin_data.h5", chunk_size=500):
 
         images_list = []
         labels_list = []
-
         unique_labels_map = {}
         current_label_id = 0
 
         for root, _, files in os.walk(dataset_path):
             for file in files:
-                if file.endswith(('.jpg', '.png')):
+                if file.lower().endswith(('.jpg', '.png', '.jpeg')):
                     try:
                         image_path = os.path.join(root, file)
-                        img = Image.open(image_path).convert("RGB").resize((224, 224))
-                        img_array = np.array(img, dtype=np.uint8)  # Store as uint8
+                        img = Image.open(image_path).convert("RGB").resize(image_size)
+                        img_array = np.array(img, dtype=np.uint8)
 
                         label = os.path.basename(root)
                         if label not in unique_labels_map:
@@ -54,10 +55,15 @@ def run_etl(output_file="/opt/airflow/storage/fin_data.h5", chunk_size=500):
         if images_list:
             append_to_hdf5(images_dataset, labels_dataset, images_list, labels_list)
 
+        # Save metadata as attributes
+        h5f.attrs["label_map"] = str(unique_labels_map)
+
     print(f"ETL complete. Total images: {total_images}, Skipped: {skipped_images}")
+
 
 def append_to_hdf5(images_dataset, labels_dataset, images_list, labels_list):
     new_size = images_dataset.shape[0] + len(images_list)
+    print(f"Writing {len(images_list)} images to HDF5. New total size: {new_size}")
     images_dataset.resize(new_size, axis=0)
     labels_dataset.resize(new_size, axis=0)
     images_dataset[-len(images_list):] = np.array(images_list, dtype=np.uint8)

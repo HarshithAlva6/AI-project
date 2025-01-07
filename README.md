@@ -68,5 +68,7 @@ Step-by-step Approach -
     docker exec -it docker-name bash
     docker exec -it docker-name-postgreSQL psql -U sql-name
 
-
 For etl.py, had to send data in chunks, and store it in uint8 under array to ensure minimal space taken in Airflow container.
+
+-> Download and unzip Images dataset from https://www.kaggle.com/datasets/iamsouravbanerjee/indian-food-images-dataset
+at AI-project/backend/airflow/dag directory

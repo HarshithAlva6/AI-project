@@ -22,8 +22,14 @@ function UploadForm() {
     if (file) {
       try {
         const response = await uploadImage(file); 
-        const ans = response.result.split("_").join(" ");
-        setResult(ans); 
+        if (response.top_predictions && response.top_predictions.length > 0) {
+          const topLabels = response.top_predictions.map(prediction => prediction.label.split("_").join(" "));
+          console.log(topLabels, "Top Predictions CHECK!");
+          setResult(topLabels); 
+      } else {
+          console.error("No predictions found in the response.");
+          setResult(["Prediction not available"]);
+      }
       } catch (error) {
         console.error('Error uploading file:', error);
       }
@@ -54,7 +60,18 @@ function UploadForm() {
           <span style={{ margin: '10px' }}>{fileName} uploaded successfully</span>
 
           <button type="submit" className="tbutton">Identify</button>
-          {result && <p>Recognized food: <strong>{result}</strong></p>}
+          {result && result.length > 0 && (
+          <div>
+            <p>Recognized food:</p>
+            <ul>
+            {result.map((label, index) => (
+                <li key={index}>
+                    <strong>Prediction {index + 1}:</strong> {label}
+                </li>
+            ))}
+            </ul>
+          </div>
+          )}
         </div>
       </form>
 

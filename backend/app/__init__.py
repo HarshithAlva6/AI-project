@@ -55,12 +55,20 @@ def create_app():
             filename = secure_filename(file.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
+            print(f"File saved at: {filepath}")
+            if os.path.exists(filepath):
+                print(f"File exists at {filepath}")
+            else:
+                print(f"File not found at {filepath}")
 
         try:
             # Preprocess the image using Pillow
             img = Image.open(filepath).resize((224, 224))  # Resize to match model input size
-            img_array = np.array(img) / 255.0  # Normalize pixel values to [0, 1]
+            img_array = np.array(img) / 255.0
+            print(f"Input array shape 1: {img_array.shape}")
             img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
+            print(f"Input array shape 2: {img_array.shape}")
+            print(f"Input array sample values: {img_array[0][:5, :5, 0]}")
             current_dir = os.path.dirname(os.path.abspath(__file__))
             txt_file_path = os.path.join(current_dir, "..", "airflow/dag/Indian Food Images", "List of Indian Foods.txt")
             absolute_path = os.path.abspath(txt_file_path)
@@ -78,12 +86,24 @@ def create_app():
             model_path = os.path.abspath(model_path)
             #model_path = "/opt/airflow/storage/efficientnet.h5"
             model = tf.keras.models.load_model(model_path)
+            print("HERE",model.summary())
             predictions = model.predict(img_array)
-            predicted_class_index = np.argmax(predictions, axis=1)[0]
-            print("DAYUMN", predicted_class_index, labels)
-            recognized_food = labels.iloc[predicted_class_index]["label"] # Map index to label
+            print(f"Raw predictions: {predictions}")
+            print(f"Sum of probabilities: {np.sum(predictions)}")
+            print(f"Number of output classes: {predictions.shape[1]}")
+            print(f"Number of labels: {len(labels)}")
+            top_indices = np.argsort(predictions[0])[-3:][::-1]  # Top-3 indices
+            print(f"Top indices: {top_indices}")
 
-            return jsonify({'result': recognized_food}), 200
+            # Ensure labels are correctly matched to the indices
+            top_predictions = []
+            for i in top_indices:
+                label = labels.iloc[i]["label"] if i < len(labels) else f"Unknown ({i})"
+                confidence = float(predictions[0][i])
+                top_predictions.append({"label": label, "confidence": confidence})
+
+            print(f"Top Predictions: {top_predictions}")
+            return jsonify({'top_predictions': top_predictions}), 200
 
         except Exception as e:
             return jsonify({'error': str(e)}), 500
