@@ -8,8 +8,11 @@ from werkzeug.utils import secure_filename
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from tensorflow.keras.applications import InceptionV3
+from tensorflow.keras.applications.inception_v3 import preprocess_input, decode_predictions
+from tensorflow.keras.preprocessing import image
 from PIL import Image
-
+import io
 
 def create_app():
     app = Flask(__name__)
@@ -23,6 +26,33 @@ def create_app():
 
     db.init_app(app)
     migrate.init_app(app, db)
+
+    # Load pre-trained InceptionV3 model
+    global inception_model
+    inception_model = InceptionV3(weights='imagenet')
+    
+    # Optional: Load your custom trained model if you have one
+    # You can still keep your custom model for Indian food specific recognition
+    global custom_model, food_labels
+    custom_model = None
+    food_labels = None
+    
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(current_dir, "..", "airflow", "efficientnet.h5")
+        model_path = os.path.abspath(model_path)
+        
+        txt_file_path = os.path.join(current_dir, "..", "airflow/dag/Indian Food Images", "List of Indian Foods.txt")
+        txt_file_path = os.path.abspath(txt_file_path)
+        
+        if os.path.exists(model_path) and os.path.exists(txt_file_path):
+            custom_model = tf.keras.models.load_model(model_path)
+            food_labels = pd.read_csv(txt_file_path, header=None, names=["label"])
+            print("Custom Indian food model loaded successfully")
+        else:
+            print("Custom model or labels not found, using only InceptionV3")
+    except Exception as e:
+        print(f"Error loading custom model: {e}")
 
     with app.app_context():
         # Import models here to ensure they are registered
@@ -41,6 +71,60 @@ def create_app():
         }
         return jsonify(data)
 
+    def preprocess_image_for_inception(img_path):
+        """Preprocess image for InceptionV3"""
+        img = image.load_img(img_path, target_size=(299, 299))  # InceptionV3 expects 299x299
+        img_array = image.img_to_array(img)
+        img_array = np.expand_dims(img_array, axis=0)
+        img_array = preprocess_input(img_array)
+        return img_array
+
+    def preprocess_image_for_custom(img_path):
+        """Preprocess image for custom model"""
+        img = Image.open(img_path).resize((224, 224))  # Your custom model expects 224x224
+        img_array = np.array(img) / 255.0
+        img_array = np.expand_dims(img_array, axis=0)
+        return img_array
+
+    def get_food_predictions(predictions, model_type="inception"):
+        """Extract food-related predictions"""
+        if model_type == "inception":
+            decoded_predictions = decode_predictions(predictions, top=10)[0]
+            
+            # Filter for food-related items (you can expand this list)
+            food_keywords = [
+                'pizza', 'burger', 'sandwich', 'salad', 'soup', 'pasta', 'noodles',
+                'rice', 'bread', 'cake', 'cookie', 'pie', 'fruit', 'vegetable',
+                'meat', 'chicken', 'fish', 'cheese', 'egg', 'milk', 'coffee',
+                'tea', 'wine', 'beer', 'chocolate', 'ice_cream', 'pancake',
+                'waffle', 'bagel', 'donut', 'pretzel', 'hot_dog', 'taco',
+                'burrito', 'curry', 'stew', 'gravy', 'sauce', 'dip'
+            ]
+            
+            food_predictions = []
+            for _, label, confidence in decoded_predictions:
+                label_lower = label.lower()
+                if any(keyword in label_lower for keyword in food_keywords):
+                    food_predictions.append({
+                        "label": label.replace('_', ' ').title(),
+                        "confidence": float(confidence)
+                    })
+            
+            return food_predictions[:3]  # Return top 3 food predictions
+        
+        elif model_type == "custom":
+            top_indices = np.argsort(predictions[0])[-3:][::-1]
+            top_predictions = []
+            for i in top_indices:
+                if i < len(food_labels):
+                    label = food_labels.iloc[i]["label"]
+                    confidence = float(predictions[0][i])
+                    top_predictions.append({
+                        "label": label.replace('_', ' ').title(),
+                        "confidence": confidence
+                    })
+            return top_predictions
+
     @app.route('/recognize', methods=['POST'])
     def recognize():
         if 'file' not in request.files:
@@ -56,56 +140,42 @@ def create_app():
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
             print(f"File saved at: {filepath}")
-            if os.path.exists(filepath):
-                print(f"File exists at {filepath}")
-            else:
-                print(f"File not found at {filepath}")
 
         try:
-            # Preprocess the image using Pillow
-            img = Image.open(filepath).resize((224, 224))  # Resize to match model input size
-            img_array = np.array(img) / 255.0
-            print(f"Input array shape 1: {img_array.shape}")
-            img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
-            print(f"Input array shape 2: {img_array.shape}")
-            print(f"Input array sample values: {img_array[0][:5, :5, 0]}")
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            txt_file_path = os.path.join(current_dir, "..", "airflow/dag/Indian Food Images", "List of Indian Foods.txt")
-            absolute_path = os.path.abspath(txt_file_path)
-            print(f"Resolved Path to .txt File: {absolute_path}")
-            meta_file = os.path.abspath(txt_file_path)
-            #txt_file_path = "/opt/airflow/dags/dag/Indian Food Images/List of Indian Foods.txt"
-            if os.path.exists(meta_file):
-                labels = pd.read_csv(meta_file, header=None, names=["label"])
-                print(labels.head())
-            else:
-               print("Metadata file not found.")
-            # Make prediction
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            model_path = os.path.join(current_dir, "..", "airflow", "efficientnet.h5")
-            model_path = os.path.abspath(model_path)
-            #model_path = "/opt/airflow/storage/efficientnet.h5"
-            model = tf.keras.models.load_model(model_path)
-            print("HERE",model.summary())
-            predictions = model.predict(img_array)
-            print(f"Raw predictions: {predictions}")
-            print(f"Sum of probabilities: {np.sum(predictions)}")
-            print(f"Number of output classes: {predictions.shape[1]}")
-            print(f"Number of labels: {len(labels)}")
-            top_indices = np.argsort(predictions[0])[-3:][::-1]  # Top-3 indices
-            print(f"Top indices: {top_indices}")
-
-            # Ensure labels are correctly matched to the indices
-            top_predictions = []
-            for i in top_indices:
-                label = labels.iloc[i]["label"] if i < len(labels) else f"Unknown ({i})"
-                confidence = float(predictions[0][i])
-                top_predictions.append({"label": label, "confidence": confidence})
-
-            print(f"Top Predictions: {top_predictions}")
-            return jsonify({'top_predictions': top_predictions}), 200
+            # Get predictions from InceptionV3 (general food recognition)
+            inception_img = preprocess_image_for_inception(filepath)
+            inception_predictions = inception_model.predict(inception_img)
+            inception_food_predictions = get_food_predictions(inception_predictions, "inception")
+            
+            result = {
+                "inception_v3_predictions": inception_food_predictions,
+                "custom_model_predictions": []
+            }
+            
+            # If custom model is available, also get predictions from it
+            if custom_model is not None and food_labels is not None:
+                custom_img = preprocess_image_for_custom(filepath)
+                custom_predictions = custom_model.predict(custom_img)
+                custom_food_predictions = get_food_predictions(custom_predictions, "custom")
+                result["custom_model_predictions"] = custom_food_predictions
+            
+            # Combine and rank predictions
+            all_predictions = inception_food_predictions + result["custom_model_predictions"]
+            all_predictions.sort(key=lambda x: x["confidence"], reverse=True)
+            
+            # Clean up uploaded file
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            
+            return jsonify({
+                'top_predictions': all_predictions[:3],
+                'detailed_results': result
+            }), 200
 
         except Exception as e:
+            # Clean up uploaded file on error
+            if os.path.exists(filepath):
+                os.remove(filepath)
             return jsonify({'error': str(e)}), 500
 
     @app.route('/graphql', methods=['POST'])

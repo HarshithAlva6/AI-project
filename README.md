@@ -67,6 +67,8 @@ Step-by-step Approach -
 11. docker ps
     docker exec -it docker-name bash
     docker exec -it docker-name-postgreSQL psql -U sql-name
+12. pip install git-filter-repo
+
 
 For etl.py, had to send data in chunks, and store it in uint8 under array to ensure minimal space taken in Airflow container.
 
