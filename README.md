@@ -1,6 +1,7 @@
 WORK IN PROGRESS!!!
 
 ** FOOD RECIPE IDENTIFICATION APP USING LLM'S **
+
 npm init -y
 
 npm install express graphql graphql-http sequelize pg pg-hstore
